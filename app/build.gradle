@@ -1,12 +1,28 @@
-plugins { id 'com.android.application' version '8.7.3' }
+plugins {
+    id 'com.android.application' version '8.7.3'
+}
+
 def searchApi = providers.gradleProperty('kinexoSearchApi').orElse('').get()
-android { buildFeatures { buildConfig true } namespace 'app.kinexo'; compileSdk 35
- defaultConfig { buildConfigField 'String', 'SEARCH_API', groovy.json.JsonOutput.toJson(searchApi); applicationId 'app.kinexo'; minSdk 24; targetSdk 35; versionCode 5; versionName '0.5.0' }
+
+android {
+    namespace 'app.kinexo'
+    compileSdk 35
+    buildFeatures {
+        buildConfig true
+    }
+    defaultConfig {
+        applicationId 'app.kinexo'
+        minSdk 24
+        targetSdk 35
+        versionCode 5
+        versionName '0.5.0'
+        buildConfigField 'String', 'SEARCH_API', groovy.json.JsonOutput.toJson(searchApi)
+    }
 }
 
 dependencies {
- implementation 'androidx.media3:media3-exoplayer:1.5.1'
- implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
- implementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
- implementation 'androidx.media3:media3-ui:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
+    implementation 'androidx.media3:media3-ui:1.5.1'
 }
