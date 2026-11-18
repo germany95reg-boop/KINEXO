@@ -2,7 +2,8 @@ plugins {
     id 'com.android.application' version '8.7.3'
 }
 
-def searchApi = providers.gradleProperty('kinexoSearchApi').orElse('').get()
+def searchApi = providers.gradleProperty('kinexoSearchApi').orElse('').get().trim()
+if (!searchApi) searchApi = 'https://kinexo-search.onrender.com'
 
 android {
     namespace 'app.kinexo'
