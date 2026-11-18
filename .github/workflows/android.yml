@@ -24,7 +24,13 @@ jobs:
           docker build -t kinexo-search:test server
           docker run -d --name kinexo-api -p 127.0.0.1:8000:8000 kinexo-search:test
           trap 'docker logs kinexo-api; docker rm -f kinexo-api' EXIT
-          curl --fail --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:8000/health
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 3 http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
