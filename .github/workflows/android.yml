@@ -10,6 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate search server
+        run: |
+          python -m pip install -r server/requirements.txt
+          python -m compileall -q server
+          cd server
+          python -c "from fastapi.testclient import TestClient; from main import app; c=TestClient(app); assert c.get('/health').json()['status']=='ok'; assert c.get('/search',params={'q':'a'}).status_code==422"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
