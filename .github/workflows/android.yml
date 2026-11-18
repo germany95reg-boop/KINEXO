@@ -19,6 +19,12 @@ jobs:
           python -m compileall -q server
           cd server
           python -c "from fastapi.testclient import TestClient; from main import app; c=TestClient(app); assert c.get('/health').json()['status']=='ok'; assert c.get('/search',params={'q':'a'}).status_code==422"
+      - name: Test search API Docker image
+        run: |
+          docker build -t kinexo-search:test server
+          docker run -d --name kinexo-api -p 127.0.0.1:8000:8000 kinexo-search:test
+          trap 'docker logs kinexo-api; docker rm -f kinexo-api' EXIT
+          curl --fail --retry 20 --retry-connrefused --retry-delay 2 http://127.0.0.1:8000/health
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
