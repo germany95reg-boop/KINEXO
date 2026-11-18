@@ -9,7 +9,16 @@ import httpx
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="KINEXO Search", version="0.4.0")
+if __package__:
+    from .discovery_api import router as discovery_router
+else:
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from server.discovery_api import router as discovery_router
+
+app = FastAPI(title="KINEXO Search", version="0.5.0")
+app.include_router(discovery_router)
 
 async def archive(client, query):
     safe = re.sub(r"[^\w ]", " ", query)
