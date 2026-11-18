@@ -1,4 +1,4 @@
 plugins { id 'com.android.application' version '8.7.3' }
 android { namespace 'app.kinexo'; compileSdk 35
- defaultConfig { applicationId 'app.kinexo'; minSdk 24; targetSdk 35; versionCode 1; versionName '0.1.0' }
+ defaultConfig { applicationId 'app.kinexo'; minSdk 24; targetSdk 35; versionCode 4; versionName '0.4.0' }
 }
