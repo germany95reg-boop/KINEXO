@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,6 +18,16 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle :app:assembleDebug
+      - name: Verify APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk KINEXO-debug.apk
+      - name: Publish test APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view alpha-test >/dev/null 2>&1 || gh release create alpha-test --title "KINEXO Alpha Test" --prerelease --notes "Debug APK for testing"
+          gh release upload alpha-test KINEXO-debug.apk --clobber
       - uses: actions/upload-artifact@v4
         with:
           name: KINEXO-v0.5.0
