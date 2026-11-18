@@ -1,6 +1,7 @@
 plugins { id 'com.android.application' version '8.7.3' }
-android { namespace 'app.kinexo'; compileSdk 35
- defaultConfig { applicationId 'app.kinexo'; minSdk 24; targetSdk 35; versionCode 5; versionName '0.5.0' }
+def searchApi = providers.gradleProperty('kinexoSearchApi').orElse('').get()
+android { buildFeatures { buildConfig true } namespace 'app.kinexo'; compileSdk 35
+ defaultConfig { buildConfigField 'String', 'SEARCH_API', groovy.json.JsonOutput.toJson(searchApi); applicationId 'app.kinexo'; minSdk 24; targetSdk 35; versionCode 5; versionName '0.5.0' }
 }
 
 dependencies {
