@@ -9,7 +9,7 @@ import httpx
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="KINEXO Search", version="0.3.0")
+app = FastAPI(title="KINEXO Search", version="0.4.0")
 
 async def archive(client, query):
     safe = re.sub(r"[^\w ]", " ", query)
@@ -41,9 +41,10 @@ async def peertube(client, query):
         license_id=(v.get("licence") or {}).get("id")
         if license_id not in (1,2,3,4,5,6): return None
         files=v.get("files") or []
-        if not files: return None
-        url=files[0].get("fileUrl","")
-        if not url.startswith("https://"): return None
+        urls=[f.get("fileUrl","") for f in files]
+        urls += [p.get("playlistUrl","") for p in (v.get("streamingPlaylists") or [])]
+        url=next((u for u in urls if isinstance(u,str) and u.startswith("https://")),None)
+        if not url: return None
         return {"id":ident,"title":v["name"],"url":url,"license":(v.get("licence") or {}).get("label"),"provider":"peertube"}
     limit=asyncio.Semaphore(5)
     return [x for x in await asyncio.gather(*(resolve(d) for d in r.json().get("data",[])),return_exceptions=True) if isinstance(x,dict)]
@@ -56,11 +57,12 @@ def normalize(s):
 def relevance(q,title):
     q,t=normalize(q),normalize(title)
     if q==t: return 3.0
+    if not q or not t: return 0.0
     return (1.0 if q in t else 0.0)+SequenceMatcher(None,q,t).ratio()
 
 @app.get("/health")
 def health():
-    return {"status":"ok"}
+    return {"status":"ok","version":app.version,"providers":["archive","peertube"]}
 
 @app.get("/search")
 async def search(q: str = Query(min_length=2,max_length=150)):
@@ -89,4 +91,4 @@ async def search(q: str = Query(min_length=2,max_length=150)):
         cache[cache_key]=(time.monotonic(),payload)
         cache.move_to_end(cache_key)
         while len(cache)>128: cache.popitem(last=False)
-    return JSONResponse(payload)
+    return JSONResponse(payload,headers={"Cache-Control":"no-store" if failed else "public, max-age=60"})
