@@ -1,11 +1,15 @@
 import asyncio
 import re
+import time
+from collections import OrderedDict
+from difflib import SequenceMatcher
+from fastapi import HTTPException
 from urllib.parse import quote
 import httpx
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="KINEXO Search", version="0.2.0")
+app = FastAPI(title="KINEXO Search", version="0.3.0")
 
 async def archive(client, query):
     safe = re.sub(r"[^\w ]", " ", query)
@@ -35,7 +39,7 @@ async def peertube(client, query):
             response.raise_for_status()
         v=response.json()
         license_id=(v.get("licence") or {}).get("id")
-        if license_id not in (1,2,3,4,5,6,7): return None
+        if license_id not in (1,2,3,4,5,6): return None
         files=v.get("files") or []
         if not files: return None
         url=files[0].get("fileUrl","")
@@ -44,14 +48,31 @@ async def peertube(client, query):
     limit=asyncio.Semaphore(5)
     return [x for x in await asyncio.gather(*(resolve(d) for d in r.json().get("data",[])),return_exceptions=True) if isinstance(x,dict)]
 
+cache=OrderedDict()
+
+def normalize(s):
+    return " ".join(re.findall(r"\w+",s.casefold()))
+
+def relevance(q,title):
+    q,t=normalize(q),normalize(title)
+    if q==t: return 3.0
+    return (1.0 if q in t else 0.0)+SequenceMatcher(None,q,t).ratio()
+
 @app.get("/health")
 def health():
     return {"status":"ok"}
 
 @app.get("/search")
 async def search(q: str = Query(min_length=2,max_length=150)):
-    async with httpx.AsyncClient(timeout=12,follow_redirects=True) as client:
-        groups=await asyncio.gather(archive(client,q),peertube(client,q),return_exceptions=True)
+    q = " ".join(q.split())
+    if len(q)<2: raise HTTPException(422,"Empty search")
+    cache_key=q.casefold()
+    saved=cache.get(cache_key)
+    if saved and time.monotonic()-saved[0]<120:
+        cache.move_to_end(cache_key)
+        return JSONResponse(saved[1])
+    async with httpx.AsyncClient(timeout=8,follow_redirects=True) as client:
+        groups=await asyncio.gather(asyncio.wait_for(archive(client,q),18),asyncio.wait_for(peertube(client,q),18),return_exceptions=True)
     results={}
     failed=[]
     for provider,group in zip(("archive","peertube"),groups):
@@ -59,7 +80,13 @@ async def search(q: str = Query(min_length=2,max_length=150)):
             failed.append(provider)
             continue
         for item in group:
-            key=" ".join(item["title"].casefold().split())
+            key=(normalize(item["title"]),item["provider"],item["id"])
             if key not in results: results[key]={**item,"alternatives":[]}
             else: results[key]["alternatives"].append(item)
-    return JSONResponse({"results":list(results.values()),"unavailable_providers":failed})
+    ranked=sorted(results.values(),key=lambda item: relevance(q,item["title"]),reverse=True)
+    payload={"results":ranked[:40],"unavailable_providers":failed}
+    if not failed:
+        cache[cache_key]=(time.monotonic(),payload)
+        cache.move_to_end(cache_key)
+        while len(cache)>128: cache.popitem(last=False)
+    return JSONResponse(payload)
